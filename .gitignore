@@ -1,35 +1,11 @@
-# Bridgetown
-output
-.bridgetown-cache
-.bridgetown-metadata
-.bridgetown-webpack
+# Ignore all files by default
+*
 
-# Dependency folders
-node_modules
-bower_components
-vendor
+# But keep these specific files
+!交互区模糊搜索.html
+!.gitignore
+!.gitlab-ci.yml
 
-# Caches
-.sass-cache
-.npm
-.node_repl_history
-
-# Ignore bundler config.
-/.bundle
-
-# Ignore Byebug command history file.
-.byebug_history
-
-# dotenv environment variables file
-.env
-
-# Mac files
-.DS_Store
-
-# Yarn
-yarn-error.log
-yarn-debug.log*
-.pnp/
-.pnp.js
-# Yarn Integrity file
-.yarn-integrity
+# Ignore specific system directories
+$RECYCLE.BIN/
+System Volume Information/
