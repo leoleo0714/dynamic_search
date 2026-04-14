@@ -1,0 +1,10 @@
+# 忽略所有文件
+*
+
+# 但保留以下文件
+!交互区模糊搜索.html
+!.gitignore
+
+# 忽略特定目录
+$RECYCLE.BIN/
+System Volume Information/

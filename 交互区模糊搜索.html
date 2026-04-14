@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互搜索工具 - 横屏优化版</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --header-bg: rgba(15, 23, 42, 0.95);
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --text-primary: #ffffff;
+            --text-secondary: #e2e8f0;
+            --accent-color: #2563eb;
+            --accent-light: #60a5fa;
+            --table-head-bg: #1e293b;
+            --sticky-bg: #1e293b;
+            --detail-bg: #0d1117;
+        }
+
+        body.light-mode {
+            --bg-color: #f8fafc;
+            --header-bg: rgba(255, 255, 255, 0.95);
+            --card-bg: #ffffff;
+            --border-color: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --table-head-bg: #f1f5f9;
+            --sticky-bg: #f8fafc;
+            --detail-bg: #f1f5f9;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-color); color: var(--text-secondary); min-height: 100vh; overflow-x: hidden; }
+
+        header { background: var(--header-bg); border-bottom: 1px solid var(--border-color); padding: 12px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); display: flex; justify-content: space-between; align-items: center; }
+        .theme-toggle { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); cursor: pointer; font-size: 12px; }
+
+        main { max-width: 99vw; margin: 0 auto; padding: 12px; }
+        .upload-box { border: 2px dashed var(--border-color); border-radius: 12px; padding: 40px; text-align: center; background: var(--card-bg); cursor: pointer; }
+        .file-bar { display: none; align-items: center; justify-content: space-between; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 16px; margin-bottom: 10px; }
+
+        /* 搜索框区域 */
+        .search-bar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; display:none; margin-bottom: 10px; }
+        .search-controls { display: flex; gap: 12px; align-items: center; }
+        .search-input-wrap { flex: 1; }
+        .search-input-wrap input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 15px; color: var(--text-primary); outline: none; }
+        
+        .mode-selector { display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .mode-btn { padding: 6px 12px; border: none; background: transparent; color: #64748b; cursor: pointer; border-radius: 6px; font-size: 12px; }
+        .mode-btn.active { background: var(--accent-color); color: white; }
+
+        /* 同步滚动条与表格 */
+        .table-wrap { border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; display:none; }
+        .scroll-sync-top { overflow-x: auto; height: 14px; background: var(--table-head-bg); border-bottom: 1px solid var(--border-color); }
+        .scroll-sync-top div { height: 1px; }
+
+        .table-scroll { overflow: auto; max-height: 70vh; }
+        table { width: max-content; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+        thead th { text-align: left; padding: 10px; font-weight: 700; color: var(--accent-light); background: var(--table-head-bg); border: 1px solid var(--border-color); position: sticky; top: 0; z-index: 10; width: 220px; }
+        tbody td { padding: 8px 10px; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
+
+        /* 固定列设计 */
+        .sticky-id { position: sticky; left: 0; z-index: 11; background: var(--sticky-bg) !important; width: 50px !important; text-align: center; border-right: 2px solid var(--accent-color) !important; }
+        .sticky-action { position: sticky; left: 50px; z-index: 11; background: var(--sticky-bg) !important; width: 160px !important; border-right: 2px solid var(--accent-color) !important; }
+
+        .row-btns { display: flex; gap: 4px; }
+        .row-btn { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid var(--border-color); cursor: pointer; background: transparent; color: var(--text-secondary); }
+        .row-btn.active { color: #fff !important; }
+        .row-btn.zh.active { background: #fb923c; border-color: #fb923c; }
+        .row-btn.en.active { background: #60a5fa; border-color: #60a5fa; }
+        .row-btn.nomi.active { background: #c084fc; border-color: #c084fc; }
+
+        /* 详情展示：横向卡片流布局 */
+        .detail-row { background: var(--detail-bg); display: none; }
+        .detail-wrapper { padding: 15px; position: relative; left: 0; width: 100%; max-width: 100%; overflow: hidden; }
+        .detail-flex { 
+            display: flex; 
+            gap: 15px; 
+            flex-wrap: nowrap; 
+            overflow-x: auto; 
+            overflow-y: hidden;
+            padding-bottom: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--border-color);
+        }
+        .detail-flex::-webkit-scrollbar {
+            height: 6px;
+        }
+        .detail-flex::-webkit-scrollbar-track {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+        .detail-flex::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 3px;
+        }
+        .detail-item { 
+            background: rgba(255,255,255,0.03); 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            min-width: 280px; 
+            max-width: 400px;
+            flex-shrink: 0;
+        }
+        .light-mode .detail-item { background: #fff; }
+        .detail-label { font-size: 10px; font-weight: 800; color: var(--accent-light); margin-bottom: 6px; letter-spacing: 0.5px; }
+        .detail-value { font-size: 13px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; }
+        
+        /* 小屏幕适配 */
+        @media (max-width: 1200px) {
+            .detail-wrapper { left: 0; max-width: 100vw; }
+            .detail-item { min-width: 240px; max-width: 320px; }
+        }
+        @media (max-width: 768px) {
+            .detail-item { min-width: 200px; max-width: 280px; padding: 8px; }
+            .detail-label { font-size: 9px; }
+            .detail-value { font-size: 11px; }
+        }
+    </style>
+</head>
+<body class="light-mode">
+
+<header>
+    <h1>🚀 交互区WTI模糊搜索工具</h1>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <button class="theme-toggle" onclick="openFeishu()">📋 点击跳转，查找对应VDR附件下载最新版本配置表</button>
+        <button class="theme-toggle" onclick="openNomiVoice()">点击跳转飞书项目，根据nomi tts查找语音播报</button>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓 模式切换</button>
+    </div>
+</header>
+
+<main>
+    <!-- 单文件上传 -->
+    <div id="singleFileSection">
+        <div id="uploadBox" class="upload-box" style="margin-top: 10px; padding: 20px;" onclick="document.getElementById('fileInput').click()">
+            <p>📂 点击打开交互区配置表xlsx文件</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden onchange="handleFile(this.files[0])">
+        </div>
+
+        <div id="wtiUploadBox" class="upload-box" style="margin-top: 10px; padding: 20px;" onclick="document.getElementById('wtiFileInput').click()">
+            <p>📂 点击打开WTI配置表xlsx文件</p>
+            <input type="file" id="wtiFileInput" accept=".xlsx,.xls,.csv" hidden onchange="handleWTIFile(this.files[0])">
+        </div>
+    </div>
+
+    <!-- 版本对比上传 -->
+    <div id="compareSection" style="display: none;">
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <div class="upload-box" style="flex: 1; padding: 20px;" onclick="document.getElementById('oldFileInput').click()">
+                <p>📂 上传旧版本交互区配置表</p>
+                <p id="oldFileName" style="font-size: 11px; color: var(--accent-light); margin-top: 5px;">未选择文件</p>
+                <input type="file" id="oldFileInput" accept=".xlsx,.xls,.csv" hidden onchange="handleCompareFile(this.files[0], 'old')">
+            </div>
+            <div class="upload-box" style="flex: 1; padding: 20px;" onclick="document.getElementById('newFileInput').click()">
+                <p>📂 上传新版本交互区配置表</p>
+                <p id="newFileName" style="font-size: 11px; color: var(--accent-light); margin-top: 5px;">未选择文件</p>
+                <input type="file" id="newFileInput" accept=".xlsx,.xls,.csv" hidden onchange="handleCompareFile(this.files[0], 'new')">
+            </div>
+        </div>
+        <button id="startCompareBtn" class="upload-box" style="width: 100%; margin-top: 10px; padding: 15px; display: none;" onclick="startComparison()">
+            <p>🔍 开始对比两个版本</p>
+        </button>
+    </div>
+
+    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-top: 10px; text-align: center;">
+        <button class="theme-toggle" onclick="toggleCompareMode()" id="compareModeBtn">🔀 切换到版本对比模式</button>
+    </div>
+
+    <div class="usage-guide" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; margin-top: 15px; margin-bottom: 10px;">
+        <h3 style="color: var(--text-primary); margin-bottom: 10px; font-size: 14px;">📖 使用步骤：</h3>
+        <ol style="color: var(--text-secondary); font-size: 12px; line-height: 1.8; margin-left: 20px;">
+            <li>点击"点击链接，查找对应VDR附件下载最新版本配置表"可跳转到飞书文档下载配置表文件后解压</li>
+            <li>已有配置表文件，选择上方按钮打开对应的配置表excel文件（交互区或WTI）</li>
+            <li>在搜索框输入关键词进行模糊或精确搜索</li>
+            <li>点击每行左侧的"中/英/声音"按钮查看快捷详情</li>
+            
+            <li>点击"点击跳转飞书项目，根据nomi tts查找语音播报"可跳转到语音播报查询页面</li>
+            <li>如需重新上传，点击"重新上传"按钮</li>
+        </ol>
+    </div>
+
+    <div id="fileInfo" class="file-bar">
+        <div id="fnText" style="font-weight: 600;"></div>
+        <button class="row-btn" style="color: #f87171;" onclick="location.reload()">重新上传</button>
+    </div>
+
+    <div id="sheetSelector" class="sheet-selector" style="display: none; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 12px; color: var(--text-secondary);">工作表：</span>
+            <div id="sheetTabs" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+        </div>
+    </div>
+
+    <!-- 加载遮罩层 -->
+    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;">
+        <div style="background: var(--card-bg); padding: 30px 50px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
+            <div style="color: var(--text-primary); font-size: 16px; margin-bottom: 10px;">正在解析文件...</div>
+            <div id="loadingText" style="color: var(--text-secondary); font-size: 12px;">请稍候，大型文件可能需要一些时间</div>
+            <div style="margin-top: 15px; width: 200px; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden;">
+                <div id="loadingBar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.3s;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="searchBar" class="search-bar">
+        <div class="search-controls" style="flex-direction: row-reverse;">
+            <div class="search-input-wrap" style="margin-left: 12px;">
+                <input type="text" id="searchInput" placeholder="请输入搜索内容..." onkeypress="if(event.key==='Enter') doSearch()">
+            </div>
+            <button class="mode-btn" style="background: var(--accent-color); color: white; white-space: nowrap;" onclick="doSearch()">🔍 搜索</button>
+            <div class="mode-selector" style="margin-right: 12px;">
+                <button id="modeFuzzy" class="mode-btn active" onclick="setSearchMode('fuzzy')">模糊</button>
+                <button id="modeExact" class="mode-btn" onclick="setSearchMode('exact')">精确</button>
+            </div>
+        </div>
+        <div id="resultCount" style="font-size: 11px; margin-top: 8px; color: var(--accent-light); font-weight: bold;"></div>
+    </div>
+
+    <div id="tableBox" class="table-wrap">
+        <div class="scroll-sync-top" id="topScroll">
+            <div id="topScrollWidth"></div>
+        </div>
+        <div class="table-scroll" id="mainScroll">
+            <table id="dataTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- WTI ADF表 -->
+    <div id="wtiAdfBox" class="table-wrap" style="display:none; margin-top: 20px;">
+        <h3 style="padding: 10px; color: var(--text-primary);">WTI - ADF数据</h3>
+        <div class="scroll-sync-top" id="topScrollAdf">
+            <div id="topScrollWidthAdf"></div>
+        </div>
+        <div class="table-scroll" id="mainScrollAdf">
+            <table id="dataTableAdf">
+                <thead id="tableHeadAdf"></thead>
+                <tbody id="tableBodyAdf"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- WTI 非ADF表 -->
+    <div id="wtiNonAdfBox" class="table-wrap" style="display:none; margin-top: 20px;">
+        <h3 style="padding: 10px; color: var(--text-primary);">WTI - 非ADF数据</h3>
+        <div class="scroll-sync-top" id="topScrollNonAdf">
+            <div id="topScrollWidthNonAdf"></div>
+        </div>
+        <div class="table-scroll" id="mainScrollNonAdf">
+            <table id="dataTableNonAdf">
+                <thead id="tableHeadNonAdf"></thead>
+                <tbody id="tableBodyNonAdf"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="alert('错误：无法加载 Excel 解析库，请检查网络连接或稍后重试')"></script>
+<script>
+    // 检查 SheetJS 是否成功加载
+    if (typeof XLSX === 'undefined') {
+        alert('错误：Excel 解析库加载失败，请刷新页面或检查网络连接');
+    }
+    
+    let ALL_DATA = [], DISPLAYED_DATA = [], HEADERS = [], COL_MAP = {};
+    let searchMode = 'fuzzy';
+
+    const FIELD_GROUPS = {
+        zh: ['IC CHN Text', 'HUD CHN Text', 'ICS CHN Text', 'Aquila CHN Text'],
+        en: ['IC ENG Text', 'HUD ENG Text', 'ICS ENG Text', 'Aquila ENG Text'],
+        nomi: ['Nomi Tts', 'Nomi TTS Type', 'Concise Mode Nomi Pilot TTS ID', 'Detail Mode Nomi Pilot TTS ID', 'Nomi TTS Control By Setting']
+    };
+
+    // WTI专用字段组
+    const WTI_FIELD_GROUPS = {
+        zh: ['IC CHN Text', 'HUD CHN Text', 'ICS CHN Text', 'APP CHN Text'],
+        en: ['IC ENG Text', 'HUD ENG Text', 'ICS ENG Text', 'APP ENG Text'],
+        nomi: ['Nomi Tts', 'Chime']
+    };
+
+    // 顶部与表格主体滚动同步
+    const ts = document.getElementById('topScroll'), ms = document.getElementById('mainScroll');
+    ts.onscroll = () => ms.scrollLeft = ts.scrollLeft;
+    ms.onscroll = () => ts.scrollLeft = ms.scrollLeft;
+
+    // 动态适配滚动条宽度 - 使用防抖优化
+    // 全局 ResizeObserver 管理，防止内存泄漏
+    let resizeTimeout;
+    let mainResizeObserver = null;
+    let wtiResizeObservers = {};
+    
+    function setupMainResizeObserver() {
+        // 断开旧的 observer
+        if (mainResizeObserver) {
+            mainResizeObserver.disconnect();
+        }
+        
+        mainResizeObserver = new ResizeObserver(() => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const dataTable = document.getElementById('dataTable');
+                if (dataTable) {
+                    document.getElementById('topScrollWidth').style.width = dataTable.offsetWidth + 'px';
+                }
+            }, 100);
+        });
+        
+        const dataTable = document.getElementById('dataTable');
+        if (dataTable) {
+            mainResizeObserver.observe(dataTable);
+        }
+    }
+    
+    setupMainResizeObserver();
+
+    function toggleTheme() { document.body.classList.toggle('light-mode'); }
+
+    function openFeishu() {
+        window.open("https://nio.feishu.cn/wiki/JwKLw8IZ6iHBpikJohJctfv0n8d", "_blank");
+    }
+
+    function openNomiVoice() {
+        window.open("https://project.feishu.cn/wti/nomi/homepage", "_blank");
+    }
+
+    function setSearchMode(mode) {
+        searchMode = mode;
+        document.getElementById('modeFuzzy').classList.toggle('active', mode === 'fuzzy');
+        document.getElementById('modeExact').classList.toggle('active', mode === 'exact');
+        // 不再自动搜索，需要用户点击搜索按钮
+    }
+    
+    // 提取单元格背景色 - 增强版，支持 xlsx-js-style
+    function getCellBackgroundColor(cell) {
+        if (!cell) return null;
+        
+        // xlsx-js-style 可能有不同的结构
+        let style = cell.s || cell.style;
+        if (!style) return null;
+        
+        // 检查 patternType，如果是 solid 表示有填充
+        if (style.patternType && style.patternType !== 'solid') {
+            return null;
+        }
+        
+        // 检查填充颜色 (fgColor 是前景色，在Excel中用于背景填充)
+        if (style.fgColor) {
+            // RGB颜色
+            if (style.fgColor.rgb) {
+                let rgb = style.fgColor.rgb;
+                // 处理ARGB格式 (8位)，去掉Alpha通道
+                if (rgb.length === 8) {
+                    // 如果是透明或接近透明，跳过
+                    if (rgb.substring(0, 2) === '00') {
+                        return null;
+                    }
+                    rgb = rgb.substring(2);
+                }
+                // 检查是否是非透明色（白色或灰色通常表示无填充）
+                const r = parseInt(rgb.substring(0, 2), 16);
+                const g = parseInt(rgb.substring(2, 4), 16);
+                const b = parseInt(rgb.substring(4, 6), 16);
+                // 如果颜色很接近白色（RGB都大于245），认为是默认背景，不返回
+                if (r > 245 && g > 245 && b > 245) {
+                    return null;
+                }
+                return '#' + rgb.toLowerCase();
+            }
+            // 主题颜色（通过索引）
+            if (style.fgColor.theme !== undefined) {
+                // Excel标准主题颜色映射
+                const themeColors = {
+                    0: 'FFFFFF',  // 背景1 (白色)
+                    1: '000000',  // 文字1 (黑色)
+                    2: 'EEECE1',  // 背景2
+                    3: '1F497D',  // 文字2
+                    4: '4F81BD',  // 强调1 (蓝色)
+                    5: 'FF0000',  // 强调2 (红色) - 标准红色
+                    6: '9BBB59',  // 强调3 (绿色)
+                    7: '8064A2',  // 强调4 (紫色)
+                    8: '4BACC6',  // 强调5 (青色)
+                    9: 'F79646',  // 强调6 (橙色)
+                    10: '000000', // 超链接
+                    11: '000000'  // 已访问超链接
+                };
+                const color = themeColors[style.fgColor.theme];
+                if (color && color !== 'FFFFFF') {
+                    return '#' + color.toLowerCase();
+                }
+            }
+            // 索引颜色（调色板）
+            if (style.fgColor.indexed !== undefined) {
+                const indexedColors = [
+                    '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF',
+                    '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF',
+                    '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080',
+                    '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF',
+                    '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF',
+                    '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99', '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99',
+                    '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696',
+                    '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333'
+                ];
+                const color = indexedColors[style.fgColor.indexed];
+                if (color && color !== 'FFFFFF') {
+                    return '#' + color.toLowerCase();
+                }
+            }
+        }
+        
+        // 检查 bgColor（有些Excel版本使用这个）
+        if (style.bgColor) {
+            if (style.bgColor.rgb) {
+                let rgb = style.bgColor.rgb;
+                if (rgb.length === 8) {
+                    if (rgb.substring(0, 2) === '00') {
+                        return null;
+                    }
+                    rgb = rgb.substring(2);
+                }
+                const r = parseInt(rgb.substring(0, 2), 16);
+                const g = parseInt(rgb.substring(2, 4), 16);
+                const b = parseInt(rgb.substring(4, 6), 16);
+                if (r > 245 && g > 245 && b > 245) {
+                    return null;
+                }
+                return '#' + rgb.toLowerCase();
+            }
+            if (style.bgColor.theme !== undefined) {
+                const themeColors = {
+                    0: 'FFFFFF', 1: '000000', 2: 'EEECE1', 3: '1F497D', 4: '4F81BD',
+                    5: 'FF0000', 6: '9BBB59', 7: '8064A2', 8: '4BACC6', 9: 'F79646'
+                };
+                const color = themeColors[style.bgColor.theme];
+                if (color && color !== 'FFFFFF') {
+                    return '#' + color.toLowerCase();
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    // 工作表数据存储
+    let SHEETS_DATA = {};  // 存储所有工作表数据 {sheetName: {data: [], headers: []}}
+    
+    // 版本对比相关变量
+    let COMPARE_MODE = false;  // 是否处于对比模式
+    let OLD_FILE_DATA = null;  // 旧版本数据
+    let NEW_FILE_DATA = null;  // 新版本数据
+    let COMPARE_RESULT = null; // 对比结果
+    let CURRENT_SHEET = ''; // 当前选中的工作表
+    let CURRENT_FILE_TYPE = ''; // 'interaction' 或 'wti'
+    let CURRENT_CELL_COLORS = {}; // 当前工作表的单元格颜色
+
+    // 显示加载遮罩层
+    function showLoading(text) {
+        const overlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const loadingBar = document.getElementById('loadingBar');
+        overlay.style.display = 'flex';
+        if (text) loadingText.textContent = text;
+        loadingBar.style.width = '0%';
+        return {
+            setProgress: (percent) => {
+                loadingBar.style.width = percent + '%';
+            },
+            setText: (text) => {
+                loadingText.textContent = text;
+            },
+            hide: () => {
+                overlay.style.display = 'none';
+            }
+        };
+    }
+
+    // 分片处理大数组，避免阻塞UI
+    async function processInChunks(array, chunkSize, processor, progressCallback) {
+        const results = [];
+        for (let i = 0; i < array.length; i += chunkSize) {
+            const chunk = array.slice(i, i + chunkSize);
+            const chunkResults = await new Promise(resolve => {
+                setTimeout(() => {
+                    resolve(chunk.map(processor));
+                }, 0);
+            });
+            results.push(...chunkResults);
+            if (progressCallback) {
+                progressCallback(Math.min((i + chunkSize) / array.length * 100, 100));
+            }
+            // 让出主线程
+            await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        return results;
+    }
+
+    async function handleFile(file) {
+        if (!file) return;
+        
+        // 文件大小检查 (超过 50MB 提示)
+        const MAX_FILE_SIZE = 50 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
+            if (!confirm(`文件较大 (${(file.size / 1024 / 1024).toFixed(1)}MB)，加载可能需要较长时间，是否继续？`)) {
+                return;
+            }
+        }
+        
+        const loading = showLoading('正在读取文件...');
+        
+        const reader = new FileReader();
+        
+        reader.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total * 30).toFixed(0); // 读取占30%
+                loading.setProgress(percent);
+                loading.setText(`正在读取文件... ${(e.loaded / 1024 / 1024).toFixed(1)}MB / ${(e.total / 1024 / 1024).toFixed(1)}MB`);
+            }
+        };
+        
+        reader.onload = async (e) => {
+            loading.setProgress(30);
+            loading.setText('正在解析 Excel...');
+            
+            // 使用 setTimeout 让UI有机会更新
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), { 
+                    type: 'array',
+                    cellStyles: true
+                });
+                
+                loading.setProgress(50);
+                loading.setText(`正在处理 ${workbook.SheetNames.length} 个工作表...`);
+                
+                // 限制工作表数量，避免过多工作表导致卡顿
+                const MAX_SHEETS = 10;
+                const sheetNamesToProcess = workbook.SheetNames.slice(0, MAX_SHEETS);
+                if (workbook.SheetNames.length > MAX_SHEETS) {
+                    console.warn(`文件包含 ${workbook.SheetNames.length} 个工作表，只处理前 ${MAX_SHEETS} 个`);
+                }
+                
+                // 存储所有工作表数据
+                SHEETS_DATA = {};
+                const totalSheets = sheetNamesToProcess.length;
+                
+                for (let i = 0; i < sheetNamesToProcess.length; i++) {
+                    const sheetName = sheetNamesToProcess[i];
+                    loading.setText(`正在处理工作表 ${i + 1}/${totalSheets}: ${sheetName}...`);
+                    loading.setProgress(50 + (i / totalSheets * 40)); // 50-90%
+                    
+                    // 让出主线程
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                    
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                    
+                    // 限制单个工作表的行数
+                    const MAX_ROWS = 10000;
+                    const limitedJson = json.slice(0, MAX_ROWS);
+                    if (json.length > MAX_ROWS) {
+                        console.warn(`工作表 "${sheetName}" 包含 ${json.length} 行，只处理前 ${MAX_ROWS} 行`);
+                    }
+                    
+                    if (limitedJson.length > 0) {
+                        const headers = Object.keys(limitedJson[0]);
+                        // 提取单元格颜色信息 - 优化性能
+                        const cellColors = {};
+                        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+                        
+                        // 性能优化：限制处理的最大单元格数
+                        const MAX_CELLS = 5000;
+                        let processedCells = 0;
+                        const totalRows = Math.min(range.e.r + 1, range.s.r + Math.ceil(MAX_CELLS / (range.e.c - range.s.c + 1)));
+                        
+                        // 只处理可见区域的单元格
+                        for (let row = range.s.r; row < totalRows && processedCells < MAX_CELLS; row++) {
+                            for (let col = range.s.c; col <= range.e.c && processedCells < MAX_CELLS; col++) {
+                                const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
+                                const cell = worksheet[cellAddress];
+                                processedCells++;
+                                
+                                if (cell && (cell.s || cell.style)) {
+                                    const bgColor = getCellBackgroundColor(cell);
+                                    if (bgColor) {
+                                        cellColors[cellAddress] = bgColor;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 为每一行添加原始Excel行号
+                        const dataWithRowNum = limitedJson.map((row, idx) => ({
+                            ...row,
+                            _excelRow: idx + 2
+                        }));
+                        
+                        SHEETS_DATA[sheetName] = {
+                            data: dataWithRowNum,
+                            headers: headers,
+                            cellColors: cellColors
+                        };
+                    }
+                }
+                
+                if (Object.keys(SHEETS_DATA).length === 0) {
+                    loading.hide();
+                    alert('文件中没有数据');
+                    return;
+                }
+                
+                loading.setProgress(90);
+                loading.setText('正在渲染界面...');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                CURRENT_FILE_TYPE = 'interaction';
+                CURRENT_SHEET = Object.keys(SHEETS_DATA)[0];
+                
+                renderSheetTabs();
+                loadSheet(CURRENT_SHEET);
+                
+                document.getElementById('uploadBox').style.display = 'none';
+                document.getElementById('wtiUploadBox').style.display = 'none';
+                document.getElementById('fileInfo').style.display = 'flex';
+                document.getElementById('searchBar').style.display = 'block';
+                document.getElementById('tableBox').style.display = 'block';
+                document.getElementById('sheetSelector').style.display = 'block';
+                document.getElementById('fnText').innerHTML = `${file.name} <span style="font-size: 11px; color: var(--accent-light); margin-left: 10px;">共${Object.keys(SHEETS_DATA).length}个工作表</span>`;
+                
+                loading.setProgress(100);
+                setTimeout(() => loading.hide(), 300);
+                
+            } catch (error) {
+                loading.hide();
+                console.error('文件解析错误:', error);
+                alert('文件解析失败: ' + error.message);
+            }
+        };
+        
+        reader.onerror = () => {
+            loading.hide();
+            alert('文件读取失败');
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
+    
+    function renderSheetTabs() {
+        const tabsContainer = document.getElementById('sheetTabs');
+        tabsContainer.innerHTML = Object.keys(SHEETS_DATA).map(sheetName => `
+            <button class="sheet-tab ${sheetName === CURRENT_SHEET ? 'active' : ''}" 
+                    onclick="switchSheet('${sheetName}')"
+                    style="padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-color); 
+                           background: ${sheetName === CURRENT_SHEET ? 'var(--accent-color)' : 'var(--card-bg)'}; 
+                           color: ${sheetName === CURRENT_SHEET ? 'white' : 'var(--text-secondary)'}; 
+                           cursor: pointer; font-size: 12px;">
+                ${sheetName} (${SHEETS_DATA[sheetName].data.length}条)
+            </button>
+        `).join('');
+    }
+    
+    function switchSheet(sheetName) {
+        CURRENT_SHEET = sheetName;
+        renderSheetTabs();
+        loadSheet(sheetName);
+        // 清空搜索框
+        document.getElementById('searchInput').value = '';
+    }
+    
+    function loadSheet(sheetName) {
+        const sheet = SHEETS_DATA[sheetName];
+        CURRENT_CELL_COLORS = sheet.cellColors || {}; // 设置当前工作表的单元格颜色
+        
+        if (CURRENT_FILE_TYPE === 'interaction') {
+            HEADERS = sheet.headers;
+            COL_MAP = {};
+            HEADERS.forEach(h => COL_MAP[h.trim().toLowerCase()] = h);
+            ALL_DATA = sheet.data;
+            DISPLAYED_DATA = sheet.data;
+            renderTable(DISPLAYED_DATA);
+        } else {
+            // WTI 类型
+            WTI_HEADERS = sheet.headers;
+            WTI_COL_MAP = {};
+            WTI_HEADERS.forEach(h => WTI_COL_MAP[h.trim().toLowerCase()] = h);
+            WTI_ALL_DATA = sheet.data;
+            
+            // 重新分类ADF和非ADF
+            const adfTypes = ['ADF', 'ADC', 'SAPA'];
+            WTI_ADF_DATA_RAW = sheet.data.filter(row => adfTypes.includes(String(row['Sender'] || '').toUpperCase()));
+            WTI_NONADF_DATA_RAW = sheet.data.filter(row => !adfTypes.includes(String(row['Sender'] || '').toUpperCase()));
+            // 初始化显示数据
+            WTI_ADF_DATA = WTI_ADF_DATA_RAW;
+            WTI_NONADF_DATA = WTI_NONADF_DATA_RAW;
+            
+            renderWTITables();
+        }
+    }
+
+    let WTI_ALL_DATA = [], WTI_ADF_DATA = [], WTI_NONADF_DATA = [], WTI_HEADERS = [], WTI_COL_MAP = {};
+    let currentWtiType = '';
+
+    async function handleWTIFile(file) {
+        if (!file) return;
+        
+        // 文件大小检查
+        const MAX_FILE_SIZE = 50 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
+            if (!confirm(`文件较大 (${(file.size / 1024 / 1024).toFixed(1)}MB)，加载可能需要较长时间，是否继续？`)) {
+                return;
+            }
+        }
+        
+        const loading = showLoading('正在读取文件...');
+        
+        const reader = new FileReader();
+        
+        reader.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total * 30).toFixed(0);
+                loading.setProgress(percent);
+                loading.setText(`正在读取文件... ${(e.loaded / 1024 / 1024).toFixed(1)}MB / ${(e.total / 1024 / 1024).toFixed(1)}MB`);
+            }
+        };
+        
+        reader.onload = async (e) => {
+            loading.setProgress(30);
+            loading.setText('正在解析 Excel...');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            try {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), { 
+                    type: 'array',
+                    cellStyles: true
+                });
+                
+                loading.setProgress(50);
+                loading.setText(`正在处理 ${workbook.SheetNames.length} 个工作表...`);
+                
+                // 限制工作表数量
+                const MAX_SHEETS = 10;
+                const sheetNamesToProcess = workbook.SheetNames.slice(0, MAX_SHEETS);
+                
+                SHEETS_DATA = {};
+                const totalSheets = sheetNamesToProcess.length;
+                
+                for (let i = 0; i < sheetNamesToProcess.length; i++) {
+                    const sheetName = sheetNamesToProcess[i];
+                    loading.setText(`正在处理工作表 ${i + 1}/${totalSheets}: ${sheetName}...`);
+                    loading.setProgress(50 + (i / totalSheets * 40));
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                    
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                    
+                    // 限制行数
+                    const MAX_ROWS = 10000;
+                    const limitedJson = json.slice(0, MAX_ROWS);
+                    
+                    if (limitedJson.length > 0) {
+                        const headers = Object.keys(limitedJson[0]);
+                        const cellColors = {};
+                        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+                        
+                        const MAX_CELLS = 5000;
+                        let processedCells = 0;
+                        const totalRows = Math.min(range.e.r + 1, range.s.r + Math.ceil(MAX_CELLS / (range.e.c - range.s.c + 1)));
+                        
+                        for (let row = range.s.r; row < totalRows && processedCells < MAX_CELLS; row++) {
+                            for (let col = range.s.c; col <= range.e.c && processedCells < MAX_CELLS; col++) {
+                                const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
+                                const cell = worksheet[cellAddress];
+                                processedCells++;
+                                
+                                if (cell && (cell.s || cell.style)) {
+                                    const bgColor = getCellBackgroundColor(cell);
+                                    if (bgColor) {
+                                        cellColors[cellAddress] = bgColor;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        const dataWithRowNum = limitedJson.map((row, idx) => ({
+                            ...row,
+                            _excelRow: idx + 2
+                        }));
+                        
+                        SHEETS_DATA[sheetName] = {
+                            data: dataWithRowNum,
+                            headers: headers,
+                            cellColors: cellColors
+                        };
+                    }
+                }
+                
+                if (Object.keys(SHEETS_DATA).length === 0) {
+                    loading.hide();
+                    alert('文件中没有数据');
+                    return;
+                }
+                
+                loading.setProgress(90);
+                loading.setText('正在渲染界面...');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                CURRENT_FILE_TYPE = 'wti';
+                CURRENT_SHEET = Object.keys(SHEETS_DATA)[0];
+                
+                renderSheetTabs();
+                loadSheet(CURRENT_SHEET);
+                
+                document.getElementById('wtiUploadBox').style.display = 'none';
+                document.getElementById('uploadBox').style.display = 'none';
+                document.getElementById('fileInfo').style.display = 'flex';
+                document.getElementById('searchBar').style.display = 'block';
+                document.getElementById('tableBox').style.display = 'none';
+                document.getElementById('sheetSelector').style.display = 'block';
+                document.getElementById('fnText').innerHTML = `${file.name} <span style="font-size: 11px; color: var(--accent-light); margin-left: 10px;">共${Object.keys(SHEETS_DATA).length}个工作表</span>`;
+                
+                loading.setProgress(100);
+                setTimeout(() => loading.hide(), 300);
+                
+            } catch (error) {
+                loading.hide();
+                console.error('文件解析错误:', error);
+                alert('文件解析失败: ' + error.message);
+            }
+        };
+        
+        reader.onerror = () => {
+            loading.hide();
+            alert('文件读取失败');
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
+
+    // 保存 WTI 原始数据副本，用于搜索
+    let WTI_ADF_DATA_RAW = [];
+    let WTI_NONADF_DATA_RAW = [];
+
+    function renderWTITables(searchTerm = '') {
+        // 根据搜索词过滤数据 - 始终从原始数据开始过滤
+        let adfData = WTI_ADF_DATA_RAW;
+        let nonAdfData = WTI_NONADF_DATA_RAW;
+        
+        if (searchTerm) {
+            const val = searchTerm.trim().toLowerCase();
+            if (searchMode === 'exact') {
+                // 精确模式：内容包含匹配（不区分大小写）
+                adfData = WTI_ADF_DATA_RAW.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(val)));
+                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(val)));
+            } else {
+                // 模糊模式：将连续数字作为整体匹配，其他字符使用子序列匹配
+                const regex = buildFuzzyRegex(val);
+                adfData = WTI_ADF_DATA_RAW.filter(row => regex.test(Object.values(row).join(' ')));
+                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => regex.test(Object.values(row).join(' ')));
+            }
+        }
+        
+        // 更新全局变量为过滤后的结果（用于详情展示）
+        WTI_ADF_DATA = adfData;
+        WTI_NONADF_DATA = nonAdfData;
+        
+        // 更新结果计数
+        const totalCount = adfData.length + nonAdfData.length;
+        document.getElementById('resultCount').textContent = `查找到 ${totalCount} 条数据 (ADF: ${adfData.length}, 非ADF: ${nonAdfData.length})`;
+        
+        // 渲染ADF表
+        if (adfData.length > 0) {
+            document.getElementById('wtiAdfBox').style.display = 'block';
+            renderWTITable(adfData, WTI_HEADERS, 'Adf');
+        } else {
+            document.getElementById('wtiAdfBox').style.display = 'none';
+        }
+        
+        // 渲染非ADF表
+        if (nonAdfData.length > 0) {
+            document.getElementById('wtiNonAdfBox').style.display = 'block';
+            renderWTITable(nonAdfData, WTI_HEADERS, 'NonAdf');
+        } else {
+            document.getElementById('wtiNonAdfBox').style.display = 'none';
+        }
+    }
+
+    function renderWTITable(data, headers, suffix) {
+        const head = document.getElementById(`tableHead${suffix}`);
+        const body = document.getElementById(`tableBody${suffix}`);
+        
+        head.innerHTML = `<tr><th class="sticky-id">#</th><th class="sticky-action">快捷显示</th>${headers.map(h => `<th>${escapeHTML(h)}</th>`).join('')}</tr>`;
+        
+        body.innerHTML = data.map((row, idx) => {
+            // 获取原始行号（如果有）
+            const excelRow = row._excelRow || (idx + 2);
+            
+            return `
+            <tr id="wti-${suffix.toLowerCase()}-r-${idx}">
+                <td class="sticky-id">${idx + 1}</td>
+                <td class="sticky-action">
+                    <div class="row-btns">
+                        <button class="row-btn zh" onclick="toggleWTIDetail('${suffix.toLowerCase()}', ${idx}, 'zh', this)">中</button>
+                        <button class="row-btn en" onclick="toggleWTIDetail('${suffix.toLowerCase()}', ${idx}, 'en', this)">英</button>
+                        <button class="row-btn nomi" onclick="toggleWTIDetail('${suffix.toLowerCase()}', ${idx}, 'nomi', this)">声音</button>
+                    </div>
+                </td>
+                ${headers.map((h, colIdx) => {
+                    const cellAddress = XLSX.utils.encode_cell({r: excelRow - 1, c: colIdx});
+                    const bgColor = CURRENT_CELL_COLORS[cellAddress];
+                    const style = bgColor ? ` style="background-color: ${bgColor} !important;"` : '';
+                    return `<td${style}>${escapeHTML(row[h])}</td>`;
+                }).join('')}
+            </tr>
+            <tr id="wti-${suffix.toLowerCase()}-d-${idx}" class="detail-row"><td colspan="${headers.length + 2}">
+                <div class="detail-wrapper"><div class="detail-flex" id="wti-${suffix.toLowerCase()}-df-${idx}"></div></div>
+            </td></tr>
+        `}).join('');
+        
+        // 设置滚动同步
+        const ts = document.getElementById(`topScroll${suffix}`);
+        const ms = document.getElementById(`mainScroll${suffix}`);
+        ts.onscroll = () => ms.scrollLeft = ts.scrollLeft;
+        ms.onscroll = () => ts.scrollLeft = ms.scrollLeft;
+        
+        // 动态适配滚动条宽度 - 使用防抖优化，并管理 observer 防止内存泄漏
+        const observerKey = `wti${suffix}`;
+        if (wtiResizeObservers[observerKey]) {
+            wtiResizeObservers[observerKey].disconnect();
+        }
+        
+        let wtiResizeTimeout;
+        wtiResizeObservers[observerKey] = new ResizeObserver(() => {
+            clearTimeout(wtiResizeTimeout);
+            wtiResizeTimeout = setTimeout(() => {
+                const dataTable = document.getElementById(`dataTable${suffix}`);
+                const topScrollWidth = document.getElementById(`topScrollWidth${suffix}`);
+                if (dataTable && topScrollWidth) {
+                    topScrollWidth.style.width = dataTable.offsetWidth + 'px';
+                }
+            }, 100);
+        });
+        
+        const dataTable = document.getElementById(`dataTable${suffix}`);
+        if (dataTable) {
+            wtiResizeObservers[observerKey].observe(dataTable);
+        }
+    }
+
+    // 全局存储当前渲染的数据和索引，用于虚拟滚动
+    let RENDERED_DATA = [];
+    let RENDER_START_INDEX = 0;
+    const ITEM_HEIGHT = 40; // 预估每行高度
+    const BUFFER_SIZE = 10; // 上下缓冲行数
+    
+    function renderTable(data, append = false) {
+        const head = document.getElementById('tableHead'), body = document.getElementById('tableBody');
+        
+        // 大数据量提示
+        if (!append && data.length > 5000) {
+            console.warn(`数据量较大 (${data.length} 行)，将采用分批渲染`);
+        }
+        
+        if (!append) {
+            head.innerHTML = `<tr><th class="sticky-id">#</th><th class="sticky-action">快捷显示</th>${HEADERS.map(h => `<th>${escapeHTML(h)}</th>`).join('')}</tr>`;
+            body.innerHTML = '';
+            RENDERED_DATA = data;
+            RENDER_START_INDEX = 0;
+        }
+        
+        // 调试：输出颜色数据
+        console.log('渲染表格，单元格颜色数据:', Object.keys(CURRENT_CELL_COLORS).length, '个');
+        
+        // 分批渲染，避免大数据量卡顿 - 减少初始批次大小
+        const BATCH_SIZE = 50;
+        const startIdx = append ? RENDER_START_INDEX : 0;
+        const endIdx = Math.min(startIdx + BATCH_SIZE, data.length);
+        
+        let html = '';
+        for (let idx = startIdx; idx < endIdx; idx++) {
+            const row = data[idx];
+            const excelRow = row._excelRow || (idx + 2);
+            
+            html += `
+            <tr id="r-${idx}">
+                <td class="sticky-id">${idx + 1}</td>
+                <td class="sticky-action">
+                    <div class="row-btns">
+                        <button class="row-btn zh" onclick="toggleDetail(${idx}, 'zh', this)">中</button>
+                        <button class="row-btn en" onclick="toggleDetail(${idx}, 'en', this)">英</button>
+                        <button class="row-btn nomi" onclick="toggleDetail(${idx}, 'nomi', this)">声音</button>
+                    </div>
+                </td>
+                ${HEADERS.map((h, colIdx) => {
+                    const cellAddress = XLSX.utils.encode_cell({r: excelRow - 1, c: colIdx});
+                    const bgColor = CURRENT_CELL_COLORS[cellAddress];
+                    const style = bgColor ? ` style="background-color: ${bgColor} !important;"` : '';
+                    return `<td${style}>${escapeHTML(row[h])}</td>`;
+                }).join('')}
+            </tr>
+            <tr id="d-${idx}" class="detail-row"><td colspan="${HEADERS.length + 2}">
+                <div class="detail-wrapper"><div class="detail-flex" id="df-${idx}"></div></div>
+            </td></tr>`;
+        }
+        
+        if (append) {
+            body.insertAdjacentHTML('beforeend', html);
+            RENDER_START_INDEX = endIdx;
+        } else {
+            body.innerHTML = html;
+            RENDER_START_INDEX = endIdx;
+        }
+        
+        // 如果还有更多数据，设置滚动监听
+        if (endIdx < data.length) {
+            setupScrollLoader(data, endIdx);
+        }
+    }
+    
+    // 设置滚动加载
+    let scrollListener = null;
+    let isLoadingMore = false;
+    
+    function setupScrollLoader(data, currentIndex) {
+        const scrollContainer = document.getElementById('mainScroll');
+        const body = document.getElementById('tableBody');
+        
+        // 移除旧的监听器
+        if (scrollListener) {
+            scrollContainer.removeEventListener('scroll', scrollListener);
+        }
+        
+        scrollListener = () => {
+            const scrollTop = scrollContainer.scrollTop;
+            const scrollHeight = scrollContainer.scrollHeight;
+            const clientHeight = scrollContainer.clientHeight;
+            
+            // 滚动到底部附近时加载更多
+            if (scrollTop + clientHeight >= scrollHeight - 100) {
+                if (RENDER_START_INDEX < data.length && !isLoadingMore) {
+                    // 显示加载提示
+                    isLoadingMore = true;
+                    const loadingRow = document.createElement('tr');
+                    loadingRow.id = 'loading-indicator';
+                    loadingRow.innerHTML = `<td colspan="${HEADERS.length + 2}" style="text-align: center; padding: 20px; color: var(--accent-light);">正在加载更多数据...</td>`;
+                    body.appendChild(loadingRow);
+                    
+                    // 使用 requestAnimationFrame 避免阻塞UI
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            // 移除加载提示
+                            const indicator = document.getElementById('loading-indicator');
+                            if (indicator) {
+                                indicator.remove();
+                            }
+                            renderTable(data, true);
+                            isLoadingMore = false;
+                        }, 100);
+                    });
+                }
+            }
+        };
+        
+        scrollContainer.addEventListener('scroll', scrollListener);
+    }
+
+    function doSearch() {
+        const kw = document.getElementById('searchInput').value || '';
+        const val = kw.trim().toLowerCase();
+        
+        // 检查是否是WTI模式（有WTI数据且主表格隐藏）
+        if (WTI_ALL_DATA.length > 0 && document.getElementById('tableBox').style.display === 'none') {
+            // WTI模式：重新渲染带搜索过滤的表格
+            if (!val) {
+                // 清空搜索时重置结果计数
+                document.getElementById('resultCount').textContent = `共 ${WTI_ALL_DATA.length} 条数据`;
+            }
+            renderWTITables(kw);
+        } else if (COMPARE_MODE && COMPARE_RESULT) {
+            // 对比模式：筛选对比结果（支持模糊和精确搜索）
+            const allData = [...COMPARE_RESULT.added, ...COMPARE_RESULT.removed, ...COMPARE_RESULT.modified];
+            if (!val) {
+                renderCompareTable(allData);
+                document.getElementById('resultCount').innerHTML = `
+                    <span style="color: #22c55e;">新增 ${COMPARE_RESULT.added.length}</span> | 
+                    <span style="color: #ef4444;">删除 ${COMPARE_RESULT.removed.length}</span> | 
+                    <span style="color: #eab308;">修改 ${COMPARE_RESULT.modified.length}</span>
+                `;
+            } else {
+                let filtered;
+                if (searchMode === 'exact') {
+                    // 精确模式：内容包含匹配
+                    filtered = allData.filter(row => 
+                        Object.values(row).some(v => String(v).toLowerCase().includes(val))
+                    );
+                } else {
+                    // 模糊模式：将连续数字作为整体匹配
+                    const regex = buildFuzzyRegex(val);
+                    filtered = allData.filter(row => regex.test(Object.values(row).join(' ')));
+                }
+                renderCompareTable(filtered);
+                document.getElementById('resultCount').textContent = `搜索找到 ${filtered.length} 条数据`;
+            }
+        } else {
+            // 交互区模式：搜索前先清除滚动监听器，防止数据混乱
+            if (scrollListener) {
+                const scrollContainer = document.getElementById('mainScroll');
+                scrollContainer.removeEventListener('scroll', scrollListener);
+                scrollListener = null;
+            }
+            
+            if (!val) {
+                DISPLAYED_DATA = ALL_DATA;
+                document.getElementById('resultCount').textContent = `共 ${ALL_DATA.length} 条数据`;
+            } else if (searchMode === 'exact') {
+                // 精确模式：内容包含匹配（不区分大小写）
+                DISPLAYED_DATA = ALL_DATA.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(val)));
+                document.getElementById('resultCount').textContent = `查找到 ${DISPLAYED_DATA.length} 条数据`;
+            } else {
+                // 模糊模式：将连续数字作为整体匹配，其他字符使用子序列匹配
+                const regex = buildFuzzyRegex(val);
+                DISPLAYED_DATA = ALL_DATA.filter(row => regex.test(Object.values(row).join(' ')));
+                document.getElementById('resultCount').textContent = `查找到 ${DISPLAYED_DATA.length} 条数据`;
+            }
+            renderTable(DISPLAYED_DATA);
+        }
+    }
+
+    function buildFuzzyRegex(val) {
+        // 将搜索字符串按连续数字分组
+        const parts = [];
+        let currentPart = '';
+        let isDigit = false;
+        
+        for (let i = 0; i < val.length; i++) {
+            const char = val[i];
+            const charIsDigit = /\d/.test(char);
+            
+            if (charIsDigit !== isDigit && currentPart) {
+                // 类型变化，保存当前部分
+                parts.push({ type: isDigit ? 'digit' : 'char', value: currentPart });
+                currentPart = '';
+            }
+            
+            currentPart += char;
+            isDigit = charIsDigit;
+        }
+        
+        if (currentPart) {
+            parts.push({ type: isDigit ? 'digit' : 'char', value: currentPart });
+        }
+        
+        // 构建正则表达式
+        const pattern = parts.map(part => {
+            if (part.type === 'digit') {
+                // 连续数字：精确匹配
+                return escapeRegExp(part.value);
+            } else {
+                // 非数字：子序列匹配（每个字符之间可以有任意字符）
+                return part.value.split('').map(c => escapeRegExp(c)).join('.*');
+            }
+        }).join('.*');
+        
+        return new RegExp(pattern, 'i');
+    }
+
+    function toggleDetail(idx, type, btn) {
+        const detailRow = document.getElementById(`d-${idx}`);
+        const container = document.getElementById(`df-${idx}`);
+        const isActive = btn.classList.contains('active');
+
+        // 同行按钮互斥 - 使用requestAnimationFrame优化
+        requestAnimationFrame(() => {
+            btn.parentElement.querySelectorAll('.row-btn').forEach(b => b.classList.remove('active'));
+        });
+
+        if (detailRow.style.display === 'table-row' && isActive) {
+            detailRow.style.display = 'none';
+        } else {
+            const rowData = DISPLAYED_DATA[idx];
+            // 使用requestAnimationFrame延迟渲染，避免卡顿
+            requestAnimationFrame(() => {
+                // 渲染详情卡片
+                container.innerHTML = FIELD_GROUPS[type].map(key => {
+                    const actualKey = COL_MAP[key.toLowerCase()] || key;
+                    return `
+                        <div class="detail-item">
+                            <div class="detail-label">${escapeHTML(actualKey)}</div>
+                            <div class="detail-value">${escapeHTML(rowData[actualKey] || '-')}</div>
+                        </div>`;
+                }).join('');
+                detailRow.style.display = 'table-row';
+                btn.classList.add('active');
+            });
+        }
+    }
+
+    function toggleWTIDetail(suffix, idx, type, btn) {
+        const detailRow = document.getElementById(`wti-${suffix}-d-${idx}`);
+        const container = document.getElementById(`wti-${suffix}-df-${idx}`);
+        const isActive = btn.classList.contains('active');
+
+        // 同行按钮互斥 - 使用requestAnimationFrame优化
+        requestAnimationFrame(() => {
+            btn.parentElement.querySelectorAll('.row-btn').forEach(b => b.classList.remove('active'));
+        });
+
+        if (detailRow.style.display === 'table-row' && isActive) {
+            detailRow.style.display = 'none';
+        } else {
+            // 直接使用当前显示的数据（WTI_ADF_DATA/WTI_NONADF_DATA 已经是过滤后的结果）
+            const data = suffix === 'adf' ? WTI_ADF_DATA : WTI_NONADF_DATA;
+            const rowData = data[idx];
+            // 使用requestAnimationFrame延迟渲染，避免卡顿
+            requestAnimationFrame(() => {
+                // 渲染详情卡片 - 使用WTI专用字段组
+                container.innerHTML = WTI_FIELD_GROUPS[type].map(key => {
+                    const actualKey = WTI_COL_MAP[key.toLowerCase()] || key;
+                    return `
+                        <div class="detail-item">
+                            <div class="detail-label">${escapeHTML(actualKey)}</div>
+                            <div class="detail-value">${escapeHTML(rowData[actualKey] || '-')}</div>
+                        </div>`;
+                }).join('');
+                detailRow.style.display = 'table-row';
+                btn.classList.add('active');
+            });
+        }
+    }
+
+    // ==================== 版本对比功能 ====================
+    
+    // 切换对比模式
+    function toggleCompareMode() {
+        COMPARE_MODE = !COMPARE_MODE;
+        const btn = document.getElementById('compareModeBtn');
+        const singleSection = document.getElementById('singleFileSection');
+        const compareSection = document.getElementById('compareSection');
+        
+        if (COMPARE_MODE) {
+            btn.textContent = '🔀 切换到单文件模式';
+            singleSection.style.display = 'none';
+            compareSection.style.display = 'block';
+            // 隐藏原来的上传框
+            document.getElementById('wtiUploadBox').style.display = 'none';
+            // 重置对比数据
+            OLD_FILE_DATA = null;
+            NEW_FILE_DATA = null;
+            document.getElementById('oldFileName').textContent = '未选择文件';
+            document.getElementById('newFileName').textContent = '未选择文件';
+            document.getElementById('startCompareBtn').style.display = 'none';
+        } else {
+            btn.textContent = '🔀 切换到版本对比模式';
+            singleSection.style.display = 'block';
+            compareSection.style.display = 'none';
+            document.getElementById('wtiUploadBox').style.display = 'block';
+            location.reload(); // 刷新页面清除对比状态
+        }
+    }
+    
+    // 重置对比状态，返回对比模式选择界面
+    function resetComparison() {
+        // 清除对比结果
+        COMPARE_RESULT = null;
+        OLD_FILE_DATA = null;
+        NEW_FILE_DATA = null;
+        
+        // 隐藏结果显示
+        document.getElementById('fileInfo').style.display = 'none';
+        document.getElementById('searchBar').style.display = 'none';
+        document.getElementById('tableBox').style.display = 'none';
+        document.getElementById('resultCount').textContent = '';
+        
+        // 恢复按钮文字和功能
+        const compareBtn = document.getElementById('compareModeBtn');
+        compareBtn.textContent = '🔀 切换到版本对比模式';
+        compareBtn.onclick = toggleCompareMode;
+        
+        // 重新显示对比上传界面
+        document.getElementById('compareSection').style.display = 'block';
+        document.getElementById('oldFileName').textContent = '未选择文件';
+        document.getElementById('newFileName').textContent = '未选择文件';
+        document.getElementById('startCompareBtn').style.display = 'none';
+    }
+    
+    // 标准化值用于比较（去除空白字符，统一格式）
+    function normalizeValue(val) {
+        if (val === null || val === undefined) return '';
+        // 转为字符串，去除首尾空白，将多个连续空白替换为单个空格
+        return String(val).trim().replace(/\s+/g, ' ');
+    }
+    
+    // 处理对比模式下的文件上传
+    function handleCompareFile(file, type) {
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const workbook = XLSX.read(new Uint8Array(e.target.result), { 
+                type: 'array',
+                cellStyles: true
+            });
+            
+            // 读取第一个工作表
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+            
+            if (json.length === 0) {
+                alert('文件中没有数据');
+                return;
+            }
+            
+            const fileData = {
+                name: file.name,
+                sheetName: sheetName,
+                headers: Object.keys(json[0]),
+                data: json.map((row, idx) => ({...row, _excelRow: idx + 2}))
+            };
+            
+            if (type === 'old') {
+                OLD_FILE_DATA = fileData;
+                document.getElementById('oldFileName').textContent = file.name;
+                console.log('已加载旧版本:', file.name, '-', json.length, '行数据');
+            } else {
+                NEW_FILE_DATA = fileData;
+                document.getElementById('newFileName').textContent = file.name;
+                console.log('已加载新版本:', file.name, '-', json.length, '行数据');
+            }
+            
+            // 如果两个文件都上传了，显示开始对比按钮
+            if (OLD_FILE_DATA && NEW_FILE_DATA) {
+                document.getElementById('startCompareBtn').style.display = 'block';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // 开始对比
+    function startComparison() {
+        if (!OLD_FILE_DATA || !NEW_FILE_DATA) {
+            alert('请先上传两个版本的文件');
+            return;
+        }
+        
+        console.log('开始对比...');
+        
+        // 使用 "Key" 列作为唯一标识
+        const idField = 'Key';
+        
+        if (!OLD_FILE_DATA.headers.includes(idField) || !NEW_FILE_DATA.headers.includes(idField)) {
+            alert('错误：两个文件都必须包含 "Key" 列');
+            return;
+        }
+        
+        console.log('使用标识字段:', idField);
+        
+        // 创建旧版本数据映射
+        const oldMap = new Map();
+        OLD_FILE_DATA.data.forEach(row => {
+            const key = String(row[idField] || '').trim();
+            if (key) {
+                oldMap.set(key, row);
+            }
+        });
+        
+        // 创建新版本数据映射
+        const newMap = new Map();
+        NEW_FILE_DATA.data.forEach(row => {
+            const key = String(row[idField] || '').trim();
+            if (key) {
+                newMap.set(key, row);
+            }
+        });
+        
+        // 对比结果
+        const result = {
+            added: [],      // 新增
+            removed: [],    // 删除
+            modified: [],   // 修改
+            unchanged: []   // 未变
+        };
+        
+        // 检查新版本中的行
+        NEW_FILE_DATA.data.forEach(newRow => {
+            const key = String(newRow[idField] || '').trim();
+            if (!key) return;
+            
+            const oldRow = oldMap.get(key);
+            if (!oldRow) {
+                // 新增的行
+                result.added.push({...newRow, _compareType: 'added'});
+            } else {
+                // 检查是否有修改
+                let hasDiff = false;
+                const diffFields = [];
+                
+                // 获取所有字段（旧版本和新版本的并集）
+                const allFields = new Set([...OLD_FILE_DATA.headers, ...NEW_FILE_DATA.headers]);
+                
+                for (const field of allFields) {
+                    // 标准化比较：去除空白字符，统一格式
+                    const oldVal = normalizeValue(oldRow[field]);
+                    const newVal = normalizeValue(newRow[field]);
+                    if (oldVal !== newVal) {
+                        hasDiff = true;
+                        diffFields.push(field);
+                    }
+                }
+                
+                if (hasDiff) {
+                    result.modified.push({
+                        ...newRow,
+                        _compareType: 'modified',
+                        _diffFields: diffFields,
+                        _oldRow: oldRow
+                    });
+                } else {
+                    result.unchanged.push({...newRow, _compareType: 'unchanged'});
+                }
+            }
+        });
+        
+        // 检查旧版本中被删除的行
+        OLD_FILE_DATA.data.forEach(oldRow => {
+            const key = String(oldRow[idField] || '').trim();
+            if (!key) return;
+            
+            if (!newMap.has(key)) {
+                result.removed.push({...oldRow, _compareType: 'removed'});
+            }
+        });
+        
+        COMPARE_RESULT = result;
+        
+        console.log('对比完成:');
+        console.log('  新增:', result.added.length);
+        console.log('  删除:', result.removed.length);
+        console.log('  修改:', result.modified.length);
+        console.log('  未变:', result.unchanged.length);
+        
+        // 显示对比结果
+        displayCompareResult(result);
+    }
+    
+    // 显示对比结果
+    function displayCompareResult(result) {
+        // 隐藏原来的界面元素
+        document.getElementById('singleFileSection').style.display = 'none';
+        document.getElementById('compareSection').style.display = 'none';
+        document.getElementById('wtiUploadBox').style.display = 'none';
+        // 显示"重新对比"按钮，而不是隐藏
+        const compareBtn = document.getElementById('compareModeBtn');
+        compareBtn.textContent = '🔄 重新对比';
+        compareBtn.onclick = resetComparison;
+        
+        // 显示结果统计
+        document.getElementById('fileInfo').style.display = 'flex';
+        document.getElementById('searchBar').style.display = 'block';
+        document.getElementById('tableBox').style.display = 'block';
+        
+        const statsHtml = `
+            <span style="color: #22c55e;">新增 ${result.added.length}</span> | 
+            <span style="color: #ef4444;">删除 ${result.removed.length}</span> | 
+            <span style="color: #eab308;">修改 ${result.modified.length}</span> | 
+            <span style="color: #6b7280;">未变 ${result.unchanged.length}</span>
+        `;
+        document.getElementById('fnText').innerHTML = `版本对比结果 - ${OLD_FILE_DATA.name} vs ${NEW_FILE_DATA.name} <span style="margin-left: 20px;">${statsHtml}</span>`;
+        
+        // 合并所有数据用于显示
+        const allCompareData = [
+            ...result.added,
+            ...result.removed,
+            ...result.modified
+        ];
+        
+        // 设置表头（使用新版本的表头）
+        HEADERS = NEW_FILE_DATA.headers;
+        COL_MAP = {};
+        HEADERS.forEach(h => COL_MAP[h.trim().toLowerCase()] = h);
+        
+        // 同时设置 WTI 专用的列映射（用于快捷显示按钮）
+        WTI_HEADERS = HEADERS;
+        WTI_COL_MAP = {};
+        HEADERS.forEach(h => WTI_COL_MAP[h.trim().toLowerCase()] = h);
+        
+        // 渲染对比表格
+        renderCompareTable(allCompareData);
+        
+        // 更新结果显示
+        document.getElementById('resultCount').innerHTML = `
+            <span style="color: #22c55e;">新增 ${result.added.length}</span> | 
+            <span style="color: #ef4444;">删除 ${result.removed.length}</span> | 
+            <span style="color: #eab308;">修改 ${result.modified.length}</span>
+        `;
+    }
+    
+    // 渲染对比表格
+    function renderCompareTable(data) {
+        const head = document.getElementById('tableHead');
+        const body = document.getElementById('tableBody');
+        
+        // 添加状态列
+        head.innerHTML = `<tr><th class="sticky-id">状态</th><th class="sticky-action">详情</th>${HEADERS.map(h => `<th>${escapeHTML(h)}</th>`).join('')}</tr>`;
+        
+        body.innerHTML = data.map((row, idx) => {
+            let statusBadge = '';
+            let rowStyle = '';
+            let diffFields = row._diffFields || [];
+            
+            switch(row._compareType) {
+                case 'added':
+                    statusBadge = '<span style="color: #22c55e; font-weight: bold;">新增</span>';
+                    rowStyle = 'background-color: rgba(34, 197, 94, 0.1);';
+                    break;
+                case 'removed':
+                    statusBadge = '<span style="color: #ef4444; font-weight: bold;">删除</span>';
+                    rowStyle = 'background-color: rgba(239, 68, 68, 0.1); text-decoration: line-through;';
+                    break;
+                case 'modified':
+                    statusBadge = '<span style="color: #eab308; font-weight: bold;">修改</span>';
+                    rowStyle = 'background-color: rgba(234, 179, 8, 0.1);';
+                    break;
+            }
+            
+            return `
+            <tr id="r-${idx}" style="${rowStyle}">
+                <td class="sticky-id">${statusBadge}</td>
+                <td class="sticky-action">
+                    <div class="row-btns">
+                        <button class="row-btn zh" onclick="toggleCompareFieldDetail(${idx}, 'zh', this)">中</button>
+                        <button class="row-btn en" onclick="toggleCompareFieldDetail(${idx}, 'en', this)">英</button>
+                        <button class="row-btn nomi" onclick="toggleCompareFieldDetail(${idx}, 'nomi', this)">声音</button>
+                        <button class="row-btn" style="margin-left: 8px;" onclick="toggleCompareDetail(${idx}, this)">对比</button>
+                    </div>
+                </td>
+                ${HEADERS.map(h => {
+                    const isDiff = diffFields.includes(h);
+                    const cellStyle = isDiff ? 'style="background-color: rgba(234, 179, 8, 0.3); font-weight: bold;"' : '';
+                    return `<td ${cellStyle}>${escapeHTML(row[h])}</td>`;
+                }).join('')}
+            </tr>
+            <tr id="d-${idx}" class="detail-row"><td colspan="${HEADERS.length + 2}">
+                <div class="detail-wrapper"><div class="detail-flex" id="df-${idx}"></div></div>
+            </td></tr>
+        `}).join('');
+    }
+    
+    // 切换对比详情显示
+    function toggleCompareDetail(idx, btn) {
+        const detailRow = document.getElementById(`d-${idx}`);
+        const container = document.getElementById(`df-${idx}`);
+        const isActive = btn.classList.contains('active');
+        
+        if (detailRow.style.display === 'table-row' && isActive) {
+            detailRow.style.display = 'none';
+            btn.classList.remove('active');
+        } else {
+            // 获取当前行数据
+            const allData = [
+                ...COMPARE_RESULT.added,
+                ...COMPARE_RESULT.removed,
+                ...COMPARE_RESULT.modified
+            ];
+            const row = allData[idx];
+            
+            let detailHtml = '';
+            
+            // 获取所有字段（旧版本和新版本的并集）
+            const allFields = [...new Set([...OLD_FILE_DATA.headers, ...NEW_FILE_DATA.headers])];
+            
+            if (row._compareType === 'added') {
+                // 新增的行：只显示新版本完整数据
+                detailHtml = `
+                    <div class="detail-item" style="min-width: 500px;">
+                        <div class="detail-label" style="color: #22c55e; font-size: 14px;">✓ 新增的行 - 新版本完整数据</div>
+                        <table style="width: 100%; margin-top: 10px; font-size: 12px; border-collapse: collapse;">
+                            ${allFields.map(field => `
+                                <tr>
+                                    <td style="padding: 4px 8px; border: 1px solid var(--border-color); color: var(--text-secondary); width: 30%;">${escapeHTML(field)}</td>
+                                    <td style="padding: 4px 8px; border: 1px solid var(--border-color); color: #22c55e; background: rgba(34, 197, 94, 0.1);">${escapeHTML(row[field] || '-')}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                `;
+            } else if (row._compareType === 'removed') {
+                // 删除的行：只显示旧版本完整数据
+                detailHtml = `
+                    <div class="detail-item" style="min-width: 500px;">
+                        <div class="detail-label" style="color: #ef4444; font-size: 14px;">✗ 删除的行 - 旧版本完整数据</div>
+                        <table style="width: 100%; margin-top: 10px; font-size: 12px; border-collapse: collapse;">
+                            ${allFields.map(field => `
+                                <tr>
+                                    <td style="padding: 4px 8px; border: 1px solid var(--border-color); color: var(--text-secondary); width: 30%;">${escapeHTML(field)}</td>
+                                    <td style="padding: 4px 8px; border: 1px solid var(--border-color); color: #ef4444; background: rgba(239, 68, 68, 0.1);">${escapeHTML(row[field] || '-')}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                `;
+            } else if (row._compareType === 'modified') {
+                // 修改的行：并排显示旧版本和新版本
+                detailHtml = `
+                    <div class="detail-item" style="min-width: 600px;">
+                        <div class="detail-label" style="color: #eab308; font-size: 14px;">⚡ 修改的行 - 双版本对比</div>
+                        <div style="display: flex; gap: 20px; margin-top: 10px;">
+                            <!-- 旧版本 -->
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; color: #ef4444; margin-bottom: 8px;">旧版本</div>
+                                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                                    ${allFields.map(field => {
+                                        const isDiff = row._diffFields.includes(field);
+                                        const style = isDiff ? 'background: rgba(239, 68, 68, 0.2); color: #ef4444;' : '';
+                                        return `
+                                            <tr>
+                                                <td style="padding: 3px 6px; border: 1px solid var(--border-color); color: var(--text-secondary); width: 40%;">${escapeHTML(field)}</td>
+                                                <td style="padding: 3px 6px; border: 1px solid var(--border-color); ${style}">${escapeHTML(row._oldRow[field] || '-')}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </table>
+                            </div>
+                            <!-- 新版本 -->
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; color: #22c55e; margin-bottom: 8px;">新版本</div>
+                                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                                    ${allFields.map(field => {
+                                        const isDiff = row._diffFields.includes(field);
+                                        const style = isDiff ? 'background: rgba(34, 197, 94, 0.2); color: #22c55e;' : '';
+                                        return `
+                                            <tr>
+                                                <td style="padding: 3px 6px; border: 1px solid var(--border-color); color: var(--text-secondary); width: 40%;">${escapeHTML(field)}</td>
+                                                <td style="padding: 3px 6px; border: 1px solid var(--border-color); ${style}">${escapeHTML(row[field] || '-')}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = detailHtml;
+            detailRow.style.display = 'table-row';
+            btn.classList.add('active');
+        }
+    }
+    
+    // 切换对比页面的字段详情显示（中/英/声音）
+    function toggleCompareFieldDetail(idx, type, btn) {
+        const detailRow = document.getElementById(`d-${idx}`);
+        const container = document.getElementById(`df-${idx}`);
+        const isActive = btn.classList.contains('active');
+        
+        if (detailRow.style.display === 'table-row' && isActive) {
+            // 如果当前按钮已经是激活状态，则关闭详情
+            detailRow.style.display = 'none';
+            btn.classList.remove('active');
+            return;
+        }
+        
+        // 同行按钮互斥 - 先移除其他按钮的激活状态
+        btn.parentElement.querySelectorAll('.row-btn').forEach(b => b.classList.remove('active'));
+        
+        // 激活当前按钮
+        btn.classList.add('active');
+        
+        // 显示详情内容
+        {
+            // 获取当前行数据
+            const allData = [
+                ...COMPARE_RESULT.added,
+                ...COMPARE_RESULT.removed,
+                ...COMPARE_RESULT.modified
+            ];
+            const row = allData[idx];
+            
+            // 使用WTI字段组（因为对比功能主要针对交互区/WTI配置表）
+            const fieldGroups = WTI_FIELD_GROUPS;
+            
+            let detailHtml = '';
+            const typeLabels = { zh: '中文文本', en: '英文文本', nomi: 'Nomi语音' };
+            const typeColors = { zh: '#fb923c', en: '#60a5fa', nomi: '#c084fc' };
+            
+            // 快捷按键使用横向布局显示字段（带旧/新标签）
+            if (row._compareType === 'modified') {
+                // 修改的行：上下两排显示新旧版本（带标签）
+                detailHtml = `
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- 旧版本 -->
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <div style="min-width: 28px; padding: 4px 6px; background: #ef4444; color: white; font-size: 10px; font-weight: bold; border-radius: 3px; text-align: center; flex-shrink: 0;">旧</div>
+                            <div class="detail-flex" style="flex: 1; padding: 6px; border-left: 2px solid #ef4444; background: rgba(239, 68, 68, 0.03);">
+                                ${fieldGroups[type].map(key => {
+                                    const actualKey = WTI_COL_MAP[key.toLowerCase()] || key;
+                                    const isDiff = row._diffFields && row._diffFields.includes(actualKey);
+                                    const bgStyle = isDiff ? 'background: rgba(239, 68, 68, 0.12);' : 'background: transparent;';
+                                    return `
+                                        <div class="detail-item" style="padding: 4px 6px; margin: 0; ${bgStyle}">
+                                            <div class="detail-label" style="font-size: 9px; margin-bottom: 1px;">${escapeHTML(actualKey)}</div>
+                                            <div class="detail-value" style="font-size: 11px; line-height: 1.3;">${escapeHTML(row._oldRow[actualKey] || '-')}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <!-- 新版本 -->
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <div style="min-width: 28px; padding: 4px 6px; background: #22c55e; color: white; font-size: 10px; font-weight: bold; border-radius: 3px; text-align: center; flex-shrink: 0;">新</div>
+                            <div class="detail-flex" style="flex: 1; padding: 6px; border-left: 2px solid #22c55e; background: rgba(34, 197, 94, 0.03);">
+                                ${fieldGroups[type].map(key => {
+                                    const actualKey = WTI_COL_MAP[key.toLowerCase()] || key;
+                                    const isDiff = row._diffFields && row._diffFields.includes(actualKey);
+                                    const bgStyle = isDiff ? 'background: rgba(34, 197, 94, 0.12);' : 'background: transparent;';
+                                    return `
+                                        <div class="detail-item" style="padding: 4px 6px; margin: 0; ${bgStyle}">
+                                            <div class="detail-label" style="font-size: 9px; margin-bottom: 1px;">${escapeHTML(actualKey)}</div>
+                                            <div class="detail-value" style="font-size: 11px; line-height: 1.3;">${escapeHTML(row[actualKey] || '-')}</div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 新增或删除的行：带标签横向显示
+                const isAdded = row._compareType === 'added';
+                const label = isAdded ? '新' : '旧';
+                const bgColor = isAdded ? '#22c55e' : '#ef4444';
+                const borderColor = isAdded ? '#22c55e' : '#ef4444';
+                const bgTint = isAdded ? 'rgba(34, 197, 94, 0.03)' : 'rgba(239, 68, 68, 0.03)';
+                
+                detailHtml = `
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <div style="min-width: 28px; padding: 4px 6px; background: ${bgColor}; color: white; font-size: 10px; font-weight: bold; border-radius: 3px; text-align: center; flex-shrink: 0;">${label}</div>
+                        <div class="detail-flex" style="flex: 1; padding: 6px; border-left: 2px solid ${borderColor}; background: ${bgTint};">
+                            ${fieldGroups[type].map(key => {
+                                const actualKey = WTI_COL_MAP[key.toLowerCase()] || key;
+                                return `
+                                    <div class="detail-item" style="padding: 4px 6px; margin: 0; background: transparent;">
+                                        <div class="detail-label" style="font-size: 9px; margin-bottom: 1px;">${escapeHTML(actualKey)}</div>
+                                        <div class="detail-value" style="font-size: 11px; line-height: 1.3;">${escapeHTML(row[actualKey] || '-')}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = detailHtml;
+            detailRow.style.display = 'table-row';
+        }
+    }
+    
+    function escapeHTML(s) { return String(s).replace(/[&<>"'`]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;",'`':'&#96;'}[m])); }
+    function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+</script>
+</body>
+</html>
