@@ -59,7 +59,7 @@
         .table-scroll { overflow: auto; max-height: 70vh; }
         table { width: max-content; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
         thead th { text-align: left; padding: 10px; font-weight: 700; color: var(--accent-light); background: var(--table-head-bg); border: 1px solid var(--border-color); position: sticky; top: 0; z-index: 10; width: 220px; }
-        tbody td { padding: 8px 10px; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
+        tbody td { padding: 8px 10px; border: 1px solid var(--border-color); white-space: normal; word-break: break-all; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
 
         /* 固定列设计 */
         .sticky-id { position: sticky; left: 0; z-index: 11; background: var(--sticky-bg) !important; width: 50px !important; text-align: center; border-right: 2px solid var(--accent-color) !important; }
@@ -597,7 +597,8 @@
                         // 为每一行添加原始Excel行号
                         const dataWithRowNum = limitedJson.map((row, idx) => ({
                             ...row,
-                            _excelRow: idx + 2
+                            _excelRow: idx + 2,
+                            _searchString: Object.values(row).join('\t').toLowerCase()
                         }));
                         
                         SHEETS_DATA[sheetName] = {
@@ -788,7 +789,8 @@
                         
                         const dataWithRowNum = limitedJson.map((row, idx) => ({
                             ...row,
-                            _excelRow: idx + 2
+                            _excelRow: idx + 2,
+                            _searchString: Object.values(row).join('\t').toLowerCase()
                         }));
                         
                         SHEETS_DATA[sheetName] = {
@@ -853,14 +855,14 @@
         if (searchTerm) {
             const val = searchTerm.trim().toLowerCase();
             if (searchMode === 'exact') {
-                // 精确模式：内容包含匹配（不区分大小写）
-                adfData = WTI_ADF_DATA_RAW.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(val)));
-                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(val)));
+                // 精确模式：使用预缓存的搜索字符串（性能优化）
+                adfData = WTI_ADF_DATA_RAW.filter(row => row._searchString.includes(val));
+                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => row._searchString.includes(val));
             } else {
                 // 模糊模式：将连续数字作为整体匹配，其他字符使用子序列匹配
                 const regex = buildFuzzyRegex(val);
-                adfData = WTI_ADF_DATA_RAW.filter(row => regex.test(Object.values(row).join(' ')));
-                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => regex.test(Object.values(row).join(' ')));
+                adfData = WTI_ADF_DATA_RAW.filter(row => regex.test(row._searchString));
+                nonAdfData = WTI_NONADF_DATA_RAW.filter(row => regex.test(row._searchString));
             }
         }
         
